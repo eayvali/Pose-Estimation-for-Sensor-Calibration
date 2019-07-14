@@ -4,15 +4,17 @@ Created on Thu Jun 27 10:37:36 2019
 
 @author: elif.ayvali
 """
-
+from helpers import Tools
 import pickle
 import numpy as np
+EPS=0.00001
 
 class Batch_Processing:        
     def pose_estimation(A,B):
         """solves 
         A: (4x4xn) 
-        X: (4x4)   
+        X: (4x4): unknown
+        y: (4x4): unknown
         B: (4x4xn) 
         n number of measurements
         (Ai,Bi) has known correspondance
@@ -121,17 +123,98 @@ class Batch_Processing:
         ErrorStats[1]=np.std(Reg_error)
         return Y_est, ErrorStats
 
+class EKF(object):
+    def __init__(self):
+        
+        self.x=np.array([0,1,0,0,0,0],dtype=np.float64)
+        self.P=np.diag([1.0,1.0,1.0,100.0,100.0,100.0])
+        self.R=np.diag([1.0,1.0,1.0,1.0,1.0,1.0])  
+        self.z=np.zeros(6,dtype=np.float64) #pseudo measurements
+        
+    def Update(self,AA,BA):
+        #process model is constant so no prediction step
+        h=self.__CalculateMeasurementFunction(self.x, AA, BB)
+        H=self.__CalculateJacobian(AA,BB)  
+        S=np.linalg.multi_dot([H,self.P,H.T])+self.R
+        K =np.linalg.multi_dot([self.P, H.T,np.linalg.inv(S)])
+        
+        y=self.z-h
+        self.x=self.x+np.dot(K,y)
+        self.P=np.dot(np.identity(np.size(h))-np.dot(K,H), self.P)
+
+        
+    def __CalculateJacobian(self,AA,BB):
+        h0=self.__CalculateMeasurementFunction(self.x, AA, BB)
+#        print("h0",h0)
+        H=np.zeros((np.size(h0),np.size(self.x)))     
+        dt=np.float64(0.001)
+        for i in range(len(self.x)):
+            x_temp=np.copy(self.x)
+            x_temp[i]=x_temp[i]+dt     
+            H[:,i]=(self.__CalculateMeasurementFunction(x_temp,AA,BB)-h0)/dt;#row_vec
+        return H 
+        
+    def __CalculateMeasurementFunction(self, x, AA, BB):
+        h=np.zeros(6)
+        theta=np.linalg.norm(x[0:3])
+        if theta < EPS:
+           k=[0,1,0] #VRML standard
+           # k=[0,0,1]# ISO/IEC IS 19775-1:2013 standard
+        else:
+            k=x[:3]/np.linalg.norm(x[:3])
+            
+        Rx=Tools.vec2rotmat(theta, k)
+        v_AAX,_=Tools.rotmat2vec(np.dot(AA[:3,:3],Rx))
+        v_XBB,_=Tools.rotmat2vec(np.dot(Rx,BB[:3,:3])) #axis,angle
+        h[:3]=v_AAX[:3]-v_XBB[:3]
+        #Ratx+ta-Rxtb-tx
+        ta=AA[0:3,3]
+        tb=BB[0:3,3]
+        tx=x[3:6]
+        h[3:]=np.dot(AA[:3,:3],tx)+ta-np.dot(Rx,tb)-tx
+        return h
+           
         
 data_file='pose_sim_data_noisy.p'
 with open(data_file, mode='rb') as f:
     sim_data = pickle.load(f)
-
-A_seq=sim_data['A']
-B_seq=sim_data['B']
+#Xnoise=[ 3*(2*rand-1)/100, 3*(2*rand-1)/100, 3*(2*rand-1)/100,3*(2*rand-1)*pi/180,3*(2*rand-1)*pi/180,3*(2*rand-1)*pi/180]
+A_seq=sim_data['xfm_A']
+B_seq=sim_data['xfm_B']
+AA_seq=sim_data['xfm_AA']
+BB_seq=sim_data['xfm_BB']
 X=sim_data['X']
 Y=sim_data['Y']
 
+
+#Ground Truth
+print('.....Ground Truth')
+euler_GT=Tools.mat2euler(X[:3,:3])
+print("GT[euler_rpy(deg) , pos(mm)]:",np.array([euler_GT])*180/np.pi,X[:3,3].T*100)
+
+#Batch Processing
 X_est,Y_est,Y_est_check,ErrorStats=Batch_Processing.pose_estimation(A_seq,B_seq)
-print(X_est,Y_est,Y_est_check,ErrorStats)
+print('.....Batch Processing Results')
+euler_batch=Tools.mat2euler(X_est[:3,:3])
+print("Batch[euler_rpy(deg) , pos(mm)]:",np.array([euler_batch])*180/np.pi,X_est[:3,3].T*100)
+
+#EKF
+kf=EKF()
+for i in range(len(AA_seq[1,1,:])):
+    AA=AA_seq[:,:,i] 
+    BB=BB_seq[:,:,i]
+    kf.Update(AA,BB)
+    
+theta=np.linalg.norm(kf.x[:3])
+if theta < EPS:
+   k=[0,1,0] #VRML standard
+   # k=[0,0,1]# ISO/IEC IS 19775-1:2013 standard
+else:
+    k=kf.x[0:3]/np.linalg.norm(kf.x[:3])
+euler_ekf=Tools.mat2euler(Tools.vec2rotmat(theta, k))
+print('.....EKF Results')
+print("EKF[euler_rpy(deg) , pos(mm)]:",np.array([euler_ekf])*180/np.pi,kf.x[3:]*100)
+
+
 
 
