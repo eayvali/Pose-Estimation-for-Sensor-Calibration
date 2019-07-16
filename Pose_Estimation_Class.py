@@ -134,22 +134,22 @@ class EKF(object):
     def Update(self,AA,BA):
         #process model is constant so no prediction step
         h=self.__CalculateMeasurementFunction(self.x, AA, BB)
-        H=self.__CalculateJacobian(AA,BB)  
+        H=self.__CalculateJacobian(self.x,AA,BB)  
         S=np.linalg.multi_dot([H,self.P,H.T])+self.R
         K =np.linalg.multi_dot([self.P, H.T,np.linalg.inv(S)])
         
         y=self.z-h
         self.x=self.x+np.dot(K,y)
-        self.P=np.dot(np.identity(np.size(h))-np.dot(K,H), self.P)
+        self.P=np.dot(np.identity(np.size(self.x))-np.dot(K,H), self.P)
 
         
-    def __CalculateJacobian(self,AA,BB):
-        h0=self.__CalculateMeasurementFunction(self.x, AA, BB)
+    def __CalculateJacobian(self,x, AA,BB):
+        h0=self.__CalculateMeasurementFunction(x, AA, BB)
 #        print("h0",h0)
         H=np.zeros((np.size(h0),np.size(self.x)))     
         dt=np.float64(0.001)
-        for i in range(len(self.x)):
-            x_temp=np.copy(self.x)
+        for i in range(len(x)):
+            x_temp=np.copy(x)
             x_temp[i]=x_temp[i]+dt     
             H[:,i]=(self.__CalculateMeasurementFunction(x_temp,AA,BB)-h0)/dt;#row_vec
         return H 
@@ -174,6 +174,72 @@ class EKF(object):
         h[3:]=np.dot(AA[:3,:3],tx)+ta-np.dot(Rx,tb)-tx
         return h
            
+class IEKF(object):
+    def __init__(self):
+        
+        self.x=np.array([0,1,0,0,0,0],dtype=np.float64)
+        self.P=np.diag([1.0,1.0,1.0,100.0,100.0,100.0])
+        self.R=np.diag([1.0,1.0,1.0,1.0,1.0,1.0])  
+        self.z=np.zeros(6,dtype=np.float64) #pseudo measurements
+        
+    def Update(self,AA,BA):
+        #process model is constant so no prediction step
+        numIterations=0
+        maxIterations=10
+        innovation=0
+        stop_thresh=0.01 #needs to be tuned
+        iterations_done=False
+        xi=np.copy(self.x)
+        
+        while numIterations<maxIterations and iterations_done==False:      
+            hi=self.__CalculateMeasurementFunction(xi, AA, BB)
+            Hi=self.__CalculateJacobian(xi,AA,BB)  
+            Si=np.linalg.multi_dot([Hi,self.P,Hi.T])+self.R
+            Ki =np.linalg.multi_dot([self.P, Hi.T,np.linalg.inv(Si)])
+            
+            yi=self.z-hi-np.dot(Hi,(self.x-xi))
+            xi=self.x+np.dot(Ki,yi)   
+            numIterations=numIterations+1
+            innovation =np.linalg.norm(yi)          
+            if innovation<stop_thresh:
+                iterations_done=True                      
+        self.x=np.copy(xi)
+        H= self.__CalculateJacobian(self.x,AA,BB)  
+        S=np.linalg.multi_dot([H,self.P,H.T])+self.R
+        K =np.linalg.multi_dot([self.P, H.T,np.linalg.inv(S)])        
+        self.P=np.dot(np.identity(np.size(self.x))-np.dot(K,H), self.P)
+
+        
+    def __CalculateJacobian(self,x, AA,BB):
+        h0=self.__CalculateMeasurementFunction(x, AA, BB)
+#        print("h0",h0)
+        H=np.zeros((np.size(h0),np.size(x)))     
+        dt=np.float64(0.001)
+        for i in range(len(x)):
+            x_temp=np.copy(x)
+            x_temp[i]=x_temp[i]+dt     
+            H[:,i]=(self.__CalculateMeasurementFunction(x_temp,AA,BB)-h0)/dt;#row_vec
+        return H 
+        
+    def __CalculateMeasurementFunction(self, x, AA, BB):
+        h=np.zeros(6)
+        theta=np.linalg.norm(x[0:3])
+        if theta < EPS:
+           k=[0,1,0] #VRML standard
+           # k=[0,0,1]# ISO/IEC IS 19775-1:2013 standard
+        else:
+            k=x[:3]/np.linalg.norm(x[:3])
+            
+        Rx=Tools.vec2rotmat(theta, k)
+        v_AAX,_=Tools.rotmat2vec(np.dot(AA[:3,:3],Rx))
+        v_XBB,_=Tools.rotmat2vec(np.dot(Rx,BB[:3,:3])) #axis,angle
+        h[:3]=v_AAX[:3]-v_XBB[:3]
+        #Ratx+ta-Rxtb-tx
+        ta=AA[0:3,3]
+        tb=BB[0:3,3]
+        tx=x[3:6]
+        h[3:]=np.dot(AA[:3,:3],tx)+ta-np.dot(Rx,tb)-tx
+        return h
         
 data_file='pose_sim_data_noisy.p'
 with open(data_file, mode='rb') as f:
@@ -199,21 +265,37 @@ euler_batch=Tools.mat2euler(X_est[:3,:3])
 print("Batch[euler_rpy(deg) , pos(mm)]:",np.array([euler_batch])*180/np.pi,X_est[:3,3].T*100)
 
 #EKF
-kf=EKF()
+ekf=EKF()
 for i in range(len(AA_seq[1,1,:])):
     AA=AA_seq[:,:,i] 
     BB=BB_seq[:,:,i]
-    kf.Update(AA,BB)
+    ekf.Update(AA,BB)
     
-theta=np.linalg.norm(kf.x[:3])
+theta=np.linalg.norm(ekf.x[:3])
 if theta < EPS:
    k=[0,1,0] #VRML standard
-   # k=[0,0,1]# ISO/IEC IS 19775-1:2013 standard
 else:
-    k=kf.x[0:3]/np.linalg.norm(kf.x[:3])
+    k=ekf.x[0:3]/np.linalg.norm(ekf.x[:3])
 euler_ekf=Tools.mat2euler(Tools.vec2rotmat(theta, k))
 print('.....EKF Results')
-print("EKF[euler_rpy(deg) , pos(mm)]:",np.array([euler_ekf])*180/np.pi,kf.x[3:]*100)
+print("EKF[euler_rpy(deg) , pos(mm)]:",np.array([euler_ekf])*180/np.pi,ekf.x[3:]*100)
+
+
+#IEKF
+iekf=IEKF()
+for i in range(len(AA_seq[1,1,:])):
+    AA=AA_seq[:,:,i] 
+    BB=BB_seq[:,:,i]
+    iekf.Update(AA,BB)
+    
+theta=np.linalg.norm(iekf.x[:3])
+if theta < EPS:
+   k=[0,1,0] #VRML standard
+else:
+    k=iekf.x[0:3]/np.linalg.norm(iekf.x[:3])
+euler_ekf=Tools.mat2euler(Tools.vec2rotmat(theta, k))
+print('.....IEKF Results')
+print("IEKF[euler_rpy(deg) , pos(mm)]:",np.array([euler_ekf])*180/np.pi,iekf.x[3:]*100)
 
 
 
