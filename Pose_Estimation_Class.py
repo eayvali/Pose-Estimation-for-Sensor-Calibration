@@ -1,8 +1,22 @@
 # -*- coding: utf-8 -*-
 """
-Created on Thu Jun 27 10:37:36 2019
+    + Simultaneous Robot/World and Tool/Flange Calibration:    
+    Implementation of Shah, Mili. "Solving the robot-world/hand-eye calibration problem using the Kronecker product." 
+    Journal of Mechanisms and Robotics 5.3 (2013): 031007.
+    
+    Batch_Processing solvesfor  X and Y in AX=YB from a set of (A,B) paired measurements.
+    (Ai,Bi) are absolute pose measurements with known correspondance       
 
-@author: elif.ayvali
+    A: (4x4xn) 
+    X: (4x4): unknown
+    Y: (4x4): unknown
+    B: (4x4xn) 
+    n number of measurements
+    
+    + EKF,IEKF solves for AX=XB from a set of (Ai,Bi) relative pose measurements with known correspondance.
+    Axis-angle representation was used to represent the state.  
+    
+    @author: elif.ayvali
 """
 from helpers import Tools
 import pickle
@@ -11,18 +25,7 @@ EPS=0.00001
 
 class Batch_Processing:        
     def pose_estimation(A,B):
-        """solves 
-        A: (4x4xn) 
-        X: (4x4): unknown
-        y: (4x4): unknown
-        B: (4x4xn) 
-        n number of measurements
-        (Ai,Bi) has known correspondance
-        Implementation of Shah, Mili. "Solving the robot-world/hand-eye calibration problem using the Kronecker product." 
-        Journal of Mechanisms and Robotics 5.3 (2013): 031007.
-        Simultaneous Robot/World and Tool/Flange 
-        Calibration by Solving for  X and Y in AX=YB
-        """    
+   
         n=A.shape[2];
         T = np.zeros([9,9]);
         X_est= np.eye(4)
@@ -127,9 +130,10 @@ class EKF(object):
     def __init__(self):
         
         self.x=np.array([0,1,0,0,0,0],dtype=np.float64)
-        self.P=np.diag([1.0,1.0,1.0,100.0,100.0,100.0])
-        self.R=np.diag([1.0,1.0,1.0,1.0,1.0,1.0])  
+        self.P=np.diag([1.0,1.0,1.0,1.0,1.0,1.0])
+        self.R=np.diag([1.0,1.0,1.0,1.0,1.0,1.0])  #if zero S,P grows
         self.z=np.zeros(6,dtype=np.float64) #pseudo measurements
+        self.consistency=[]
         
     def Update(self,AA,BA):
         #process model is constant so no prediction step
@@ -137,15 +141,16 @@ class EKF(object):
         H=self.__CalculateJacobian(self.x,AA,BB)  
         S=np.linalg.multi_dot([H,self.P,H.T])+self.R
         K =np.linalg.multi_dot([self.P, H.T,np.linalg.inv(S)])
-        
+      
         y=self.z-h
         self.x=self.x+np.dot(K,y)
         self.P=np.dot(np.identity(np.size(self.x))-np.dot(K,H), self.P)
 
+        #consistency check (NIS, dof 6) xi-squared
+        self.consistency.append(np.linalg.multi_dot([y.T,np.linalg.inv(S),y]))
         
     def __CalculateJacobian(self,x, AA,BB):
         h0=self.__CalculateMeasurementFunction(x, AA, BB)
-#        print("h0",h0)
         H=np.zeros((np.size(h0),np.size(self.x)))     
         dt=np.float64(0.001)
         for i in range(len(x)):
@@ -159,7 +164,6 @@ class EKF(object):
         theta=np.linalg.norm(x[0:3])
         if theta < EPS:
            k=[0,1,0] #VRML standard
-           # k=[0,0,1]# ISO/IEC IS 19775-1:2013 standard
         else:
             k=x[:3]/np.linalg.norm(x[:3])
             
@@ -178,16 +182,17 @@ class IEKF(object):
     def __init__(self):
         
         self.x=np.array([0,1,0,0,0,0],dtype=np.float64)
-        self.P=np.diag([1.0,1.0,1.0,100.0,100.0,100.0])
-        self.R=np.diag([1.0,1.0,1.0,1.0,1.0,1.0])  
+        self.P=np.diag([1.0,1.0,1.0,1.0,1.0,1.0])
+        self.R=np.diag([1.0,1.0,1.0,1.0,1.0,1.0])  #if zero S,P grows
         self.z=np.zeros(6,dtype=np.float64) #pseudo measurements
+        self.consistency=[]
         
     def Update(self,AA,BA):
         #process model is constant so no prediction step
         numIterations=0
-        maxIterations=10
+        maxIterations=5
         innovation=0
-        stop_thresh=0.01 #needs to be tuned
+        stop_thresh=0.02 #first implement EKF then monitor this variable to tune
         iterations_done=False
         xi=np.copy(self.x)
         
@@ -196,23 +201,26 @@ class IEKF(object):
             Hi=self.__CalculateJacobian(xi,AA,BB)  
             Si=np.linalg.multi_dot([Hi,self.P,Hi.T])+self.R
             Ki =np.linalg.multi_dot([self.P, Hi.T,np.linalg.inv(Si)])
-            
-            yi=self.z-hi-np.dot(Hi,(self.x-xi))
+            yi=self.z-hi-np.dot(Hi,self.x-xi)
             xi=self.x+np.dot(Ki,yi)   
             numIterations=numIterations+1
-            innovation =np.linalg.norm(yi)          
-            if innovation<stop_thresh:
-                iterations_done=True                      
+            innovation =np.linalg.norm(yi) 
+            #x_diff=np.norm(self.x-xi)/np.norm(self.x) #use relative err for floating point 
+            if innovation<stop_thresh: 
+                iterations_done=True    
+        #consistency check (NIS, dof 6) xi-squared
+        self.consistency.append(np.linalg.multi_dot([yi.T,np.linalg.inv(Si),yi]))
+        #Update state and covariance
         self.x=np.copy(xi)
         H= self.__CalculateJacobian(self.x,AA,BB)  
         S=np.linalg.multi_dot([H,self.P,H.T])+self.R
         K =np.linalg.multi_dot([self.P, H.T,np.linalg.inv(S)])        
         self.P=np.dot(np.identity(np.size(self.x))-np.dot(K,H), self.P)
 
+
         
     def __CalculateJacobian(self,x, AA,BB):
         h0=self.__CalculateMeasurementFunction(x, AA, BB)
-#        print("h0",h0)
         H=np.zeros((np.size(h0),np.size(x)))     
         dt=np.float64(0.001)
         for i in range(len(x)):
@@ -226,7 +234,6 @@ class IEKF(object):
         theta=np.linalg.norm(x[0:3])
         if theta < EPS:
            k=[0,1,0] #VRML standard
-           # k=[0,0,1]# ISO/IEC IS 19775-1:2013 standard
         else:
             k=x[:3]/np.linalg.norm(x[:3])
             
@@ -241,10 +248,9 @@ class IEKF(object):
         h[3:]=np.dot(AA[:3,:3],tx)+ta-np.dot(Rx,tb)-tx
         return h
         
-data_file='pose_sim_data_noisy.p'
+data_file='pose_sim_data_noisy.p'#random 3deg, 3mm noise added to measurements
 with open(data_file, mode='rb') as f:
     sim_data = pickle.load(f)
-#Xnoise=[ 3*(2*rand-1)/100, 3*(2*rand-1)/100, 3*(2*rand-1)/100,3*(2*rand-1)*pi/180,3*(2*rand-1)*pi/180,3*(2*rand-1)*pi/180]
 A_seq=sim_data['xfm_A']
 B_seq=sim_data['xfm_B']
 AA_seq=sim_data['xfm_AA']
@@ -254,15 +260,20 @@ Y=sim_data['Y']
 
 
 #Ground Truth
+print('\n')
 print('.....Ground Truth')
 euler_GT=Tools.mat2euler(X[:3,:3])
-print("GT[euler_rpy(deg) , pos(mm)]:",np.array([euler_GT])*180/np.pi,X[:3,3].T*100)
+print("GT[euler_rpy(deg) , pos(mm)]:",np.array(euler_GT)*180/np.pi,X[:3,3].T*100)
 
 #Batch Processing
 X_est,Y_est,Y_est_check,ErrorStats=Batch_Processing.pose_estimation(A_seq,B_seq)
+print('\n')
 print('.....Batch Processing Results')
 euler_batch=Tools.mat2euler(X_est[:3,:3])
-print("Batch[euler_rpy(deg) , pos(mm)]:",np.array([euler_batch])*180/np.pi,X_est[:3,3].T*100)
+batch_euler_err=np.array(euler_batch)*180/np.pi-np.array(euler_GT)*180/np.pi
+batch_pos_err=X_est[:3,3].T*100-X[:3,3].T*100
+print("Batch[euler_rpy(deg) , pos(mm)]:",np.array(euler_batch)*180/np.pi,X_est[:3,3].T*100)
+print("Error[euler_rpy(deg) , pos(mm)]:", batch_euler_err, batch_pos_err)
 
 #EKF
 ekf=EKF()
@@ -277,8 +288,13 @@ if theta < EPS:
 else:
     k=ekf.x[0:3]/np.linalg.norm(ekf.x[:3])
 euler_ekf=Tools.mat2euler(Tools.vec2rotmat(theta, k))
+print('\n')
 print('.....EKF Results')
-print("EKF[euler_rpy(deg) , pos(mm)]:",np.array([euler_ekf])*180/np.pi,ekf.x[3:]*100)
+ekf_euler_err=np.array(euler_ekf)*180/np.pi-np.array(euler_GT)*180/np.pi
+ekf_pos_err=ekf.x[3:].T*100-X[:3,3].T*100
+print("EKF  [euler_rpy(deg) , pos(mm)]:",np.array(euler_ekf)*180/np.pi,ekf.x[3:]*100)
+print("Error[euler_rpy(deg) , pos(mm)]:", ekf_euler_err, ekf_pos_err)
+
 
 
 #IEKF
@@ -293,10 +309,15 @@ if theta < EPS:
    k=[0,1,0] #VRML standard
 else:
     k=iekf.x[0:3]/np.linalg.norm(iekf.x[:3])
-euler_ekf=Tools.mat2euler(Tools.vec2rotmat(theta, k))
-print('.....IEKF Results')
-print("IEKF[euler_rpy(deg) , pos(mm)]:",np.array([euler_ekf])*180/np.pi,iekf.x[3:]*100)
+euler_iekf=Tools.mat2euler(Tools.vec2rotmat(theta, k))
 
+print('\n')
+print('.....IEKF Results')
+
+iekf_euler_err=np.array(euler_iekf)*180/np.pi-np.array(euler_GT)*180/np.pi
+iekf_pos_err=iekf.x[3:].T*100-X[:3,3].T*100
+print("IEKF [euler_rpy(deg) , pos(mm)]:",np.array([euler_iekf])*180/np.pi,iekf.x[3:]*100)
+print("Error[euler_rpy(deg) , pos(mm)]:", iekf_euler_err, iekf_pos_err)
 
 
 
