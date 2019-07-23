@@ -2,7 +2,7 @@
 
 Many sensor calibration and pose estimation problems in robotics require solving equations of the form AX=XB or AX=YB to obtain the homogeneous transforms X and Y from a set of (A,B) paired measurements.
 
-![Example Applications](./Figures/Kronecker_Product.png)
+![Example Applications](./Figures/pose_estimation_examples.png)
 
 Pose_Estimation.py has several implementations that can be used based on the application needs. Batch processing class formulates the problem using Kronecker product and finds the least square solution using n pairs of data. If there is no sensor noise, theoretically, you need 3 unique poses (rotation axis) to get a solution. In practice, there is almost always sensor noise.
 
@@ -19,7 +19,7 @@ State parametrization is also very important. See the summary table below. I hig
 ![Representations of Rotation](./Figures/Rotation_representations.png)
 
 # REFERENCES 
-[1] Havlík, Jindřich, and Ondřej Straka. "Performance evaluation of iterated extended Kalman filter with variable step-length." Journal of Physics: Conference Series. Vol. 659. No. 1. IOP Publishing, 2015.
-[2] Blanco, Jose-Luis. "A tutorial on se (3) transformation parameterizations and on-manifold optimization." University of Malaga, Tech. Rep 3 (2010).
-[3] Grassia, F. Sebastian. "Practical parameterization of rotations using the exponential map." Journal of graphics tools 3.3 (1998): 29-48.
+_[1]_  Havlík, Jindřich, and Ondřej Straka. "Performance evaluation of iterated extended Kalman filter with variable step-length." Journal of Physics: Conference Series. Vol. 659. No. 1. IOP Publishing, 2015.
+_[2]_  Blanco, Jose-Luis. "A tutorial on se (3) transformation parameterizations and on-manifold optimization." University of Malaga, Tech. Rep 3 (2010).
+_[3]_  Grassia, F. Sebastian. "Practical parameterization of rotations using the exponential map." Journal of graphics tools 3.3 (1998): 29-48.
 
