@@ -14,7 +14,7 @@
     n number of measurements
     
     + EKF,IEKF solves for AX=XB from a set of (Ai,Bi) relative pose measurements with known correspondance.
-    Axis-angle representation was used to represent the state.  
+    so3 representation was used to represent the state of rotation.  
     
     @author: elif.ayvali
 """
