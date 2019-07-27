@@ -7,8 +7,18 @@ Created on Wed Jul 10 08:21:58 2019
 
 import numpy as np
 import math
+from statsmodels.stats.correlation_tools import cov_nearest
+
 
 class Tools:
+    
+    def nearestPSD(P):
+        #other options:not ideal but necessary for robust solutions:
+        #1) P?1/2P+1/2P' to even out the off-diagonal terms -- for symmetry
+        #2)Let P=P+eps In×n, where eps is a small scalar to make sure matrix is not ill conditioned
+        #3) use 64fp arithmetic
+        return cov_nearest(P)
+    
     def rot_to_quat(rot, isprecise=False):
         """Return quaternion from rotation matrix.
         If isprecise is True, the input matrix is assumed to be a precise rotation
@@ -411,3 +421,5 @@ class Tools:
             y = math.atan2(r13,  cy) # atan2(sin(y), cy)
             x = 0.0
         return z, y, x
+    
+
