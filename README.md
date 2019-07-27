@@ -23,6 +23,10 @@ State parametrization is also very important. See the summary table below. I hig
 
 ![Representations of Rotation](./Figures/Rotation_representations.png)
 
+## Example
+
+![Example Results](./Figures/example_results.png)
+
 
 ## References
 _[1]_  Havlík, Jindřich, and Ondřej Straka. "Performance evaluation of iterated extended Kalman filter with variable step-length." Journal of Physics: Conference Series. Vol. 659. No. 1. IOP Publishing, 2015.
