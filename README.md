@@ -23,6 +23,31 @@ State parametrization is also very important. See the summary table below. I hig
 
 ![Representations of Rotation](./Figures/Rotation_representations.png)
 
+##Example Results
+
+.....Ground Truth
+GT[euler_rpy(deg) , pos(mm)]: [ 76.30060196  38.77721218 -74.55150586] [ 50.99212608 -86.24462964   8.47782809]
+
+
+.....Batch Processing Results
+Batch[euler_rpy(deg) , pos(mm)]: [ 76.30060196  38.77721218 -74.55150586] [ 50.99212608 -86.24462964   8.47782809]
+Error[euler_rpy(deg) , pos(mm)]: [ 1.42108547e-14 -1.42108547e-14 -1.42108547e-14] [ 2.84217094e-14 -4.26325641e-14  1.59872116e-14]
+
+
+.....EKF Results
+EKF  [euler_rpy(deg) , pos(mm)]: [ 76.24141729  38.82670737 -74.48902165] [ 50.97119911 -86.03332789   8.48336931]
+Error[euler_rpy(deg) , pos(mm)]: [-0.05918467  0.04949519  0.06248421] [-0.02092698  0.21130174  0.00554122]
+
+
+.....IEKF Results
+IEKF [euler_rpy(deg) , pos(mm)]: [[ 76.23106881  38.8189731  -74.48172679]] [ 50.95899704 -86.09524455   8.47349281]
+Error[euler_rpy(deg) , pos(mm)]: [-0.06953314  0.04176092  0.06977907] [-0.03312905  0.14938509 -0.00433528]
+
+
+.....UKF Results
+UKF [euler_rpy(deg) , pos(mm)]: [[ 76.33720549  38.82287797 -74.57740081]] [ 50.88939532 -86.25505213   8.47571383]
+Error[euler_rpy(deg) , pos(mm)]: [ 0.03660353  0.04566579 -0.02589495] [-0.10273076 -0.01042249 -0.00211426]
+
 ## References
 _[1]_  Havlík, Jindřich, and Ondřej Straka. "Performance evaluation of iterated extended Kalman filter with variable step-length." Journal of Physics: Conference Series. Vol. 659. No. 1. IOP Publishing, 2015.
 
