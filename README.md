@@ -4,11 +4,11 @@ Many sensor calibration and pose estimation problems in robotics require solving
 
 ![Example Applications](./Figures/pose_estimation_examples.png)
 
-Pose_Estimation.py has several implementations that can be used based on the application needs.
+Pose_Estimation.py has several implementations that can be used based on the application needs. If there is no sensor noise, theoretically, you need 3 unique poses (rotation axis) to get a solution. In practice, there is almost always sensor noise.
 
 ## Batch Processing
 
-Batch processing class formulates the problem using Kronecker product and finds the least square solution using n pairs of data. If there is no sensor noise, theoretically, you need 3 unique poses (rotation axis) to get a solution. In practice, there is almost always sensor noise.
+Batch processing class formulates the problem using Kronecker product and finds the least square solution using n pairs of data. Kronecker product is a generalization of the outer product to matrices. It is useful when solving or optimizing a function where the unknown is a matrix.  
 
 ![Preliminaries for Batch Processing Solution](./Figures/Kronecker_Product.png)
 ![Least-square estimation](./Figures/LSE_solution.png)
