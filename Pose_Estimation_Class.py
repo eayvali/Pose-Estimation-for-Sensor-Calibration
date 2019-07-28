@@ -268,6 +268,8 @@ class UKF(object):
     def Update(self,AA,BA):
         h=np.zeros((self.nx,self.num_sigma),dtype=np.float64) #measurements
         h_mean=np.zeros(self.nx,dtype=np.float64) #measurements
+        x_mean=np.zeros_like(self.x)
+        P_mean=np.zeros_like(self.P)
         #process model is constant so no prediction step
         w,V=np.linalg.eig(self.P)
         self.P=np.linalg.multi_dot([V,np.diag(w),V.T])
@@ -275,23 +277,36 @@ class UKF(object):
         self.P=Tools.nearestPSD(np.copy(self.P))
         self.L=np.linalg.cholesky(self.P)#lower-triangular
         self.__GenerateSigmaPoints()
-        self.__SetWeights()
+        self.__SetWeights()        
+        
+        #predicted mean
+        for i in range(self.num_sigma):
+            x_mean+=self.weights[i]*self.sigma_pts[:,i]     
+        #predicted covariance
+        for i in range(self.num_sigma):
+            x_diff=self.sigma_pts[:,i]-x_mean   
+            P_mean+=self.weights[i]*np.outer(x_diff,x_diff.T)            
+            
+        #calculate predicted mean measurement        
         for i in range(self.num_sigma):
             h[:,i]=self.__CalculateMeasurementFunction(self.sigma_pts[:,i],AA,BB)
-            h_mean=np.copy(h_mean)+self.weights[i]*h[:,i]
-        S=np.copy(self.R)
-        T=np.zeros_like(self.P)
+            h_mean+=self.weights[i]*h[:,i]     
+            
+        S=np.copy(self.R) #predicted measurement covariance
+        T=np.zeros_like(self.P)        
         for i in range(self.num_sigma):
             h_diff=h[:,i]-h_mean
+            x_diff=self.sigma_pts[:,i]-x_mean   
             S+=self.weights[i]*np.outer(h_diff,h_diff.T)
-            T+=self.weights[i]*np.outer(self.sigma_pts[:,i].T,h_diff.T)   
-        #careful with Sinv   
+            T+=self.weights[i]*np.outer(x_diff,h_diff.T)  
+            
+        #Calculate Kalman gain: careful with Sinv   
         K=np.matmul(T,np.linalg.inv(S))
         y=self.z-h_mean
         innovation =np.linalg.norm(y) 
 #        if innovation>self.update_thresh:
-        self.P-=np.linalg.multi_dot([K,S,K.T])
-        self.x=self.x+np.dot(K,y)
+        self.P=P_mean-np.linalg.multi_dot([K,S,K.T])
+        self.x=x_mean+np.dot(K,y)
         #consistency check (NIS, dof 6) xi-squared
         self.consistency.append(np.linalg.multi_dot([y.T,np.linalg.inv(S),y]))
     
@@ -307,7 +322,8 @@ class UKF(object):
         #set the first weight
         self.weights[0]=self.l/(self.l+self.nx)
         for i in range(self.num_sigma-1):
-            self.weights[i+1]=0.5/(self.l+self.nx)            
+            self.weights[i+1]=0.5/(self.l+self.nx)   
+       
             
     def __CalculateMeasurementFunction(self, x, AA, BB):
         h=np.zeros(6)
@@ -329,7 +345,7 @@ class UKF(object):
         return h
               
         
-data_file='pose_sim_data.p'#random 3deg, 3mm noise added to measurements
+data_file='pose_sim_data_noisy.p'#random 3deg, 3mm noise added to measurements
 with open(data_file, mode='rb') as f:
     sim_data = pickle.load(f)
 A_seq=sim_data['xfm_A']
