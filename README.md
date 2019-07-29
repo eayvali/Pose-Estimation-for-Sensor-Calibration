@@ -20,7 +20,7 @@ Innovation or the norm of the difference between the consequent state estimates 
 ![IEKF implementations](./Figures/IEKF.png)
 
 ## Unscented Kalman Filter 
-The difference between EKF and UKF is in the representation of the Gaussian random variables. EKF approximates the state distribution with a Gaussian distribution and propagates the Gaussian variables by linearizing the process model and/or measurement model. UKF uses a deterministic sampling approach by representing the Gaussian distribution with a set of samples around the mean, aka sigma points, and directly passes the sigma points through the nonlinear process and/or measurement models. 
+The difference between EKF and UKF is in the representation of the Gaussian random variables. EKF approximates the state distribution with a Gaussian distribution and propagates the Gaussian variables by linearizing the process model and/or measurement model. UKF uses a deterministic sampling approach by representing the Gaussian distribution with a set of samples around the mean, aka sigma points, and directly passes the sigma points through the nonlinear process and/or measurement model. 
 
 ![UKF implementations](./Figures/UKF.png)
 ![UKF pseudocode](./Figures/UKF_eqn.png)
