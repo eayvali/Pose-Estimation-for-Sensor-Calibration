@@ -32,6 +32,8 @@ State parametrization is also very important. See the summary table below. I hig
 
 ## Examples
 
+Below are two examples with and without sensor noise. The EKF,IEKF and UKF were initialized with an uninformed prior (identity transformation).
+
 ![Example Results](./Figures/example_results.png)
 
 
