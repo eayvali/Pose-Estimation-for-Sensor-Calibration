@@ -25,6 +25,7 @@ The difference between EKF and UKF is in the representation of the Gaussian rand
 ![UKF implementations](./Figures/UKF.png)
 ![UKF pseudocode](./Figures/UKF_eqn.png)
 
+## State Representation
 State parametrization is also very important. See the summary table below. I highly recommend reading [2] and [3] to understand representations of rotations. The KF implementations here uses so3 parameters to represent rotation. Last but not least, remember to check the consistency of the filter to make sure the filter is doing its job.
 
 ![Representations of Rotation](./Figures/Rotation_representations.png)
