@@ -26,7 +26,7 @@ The difference between EKF and UKF is in the representation of the Gaussian rand
 ![UKF pseudocode](./Figures/UKF_eqn.png)
 
 ## State Representation
-State parametrization is also very important. See the summary table below. I highly recommend reading [2] and [3] to understand representations of rotations. The KF implementations here uses so3 parameters to represent rotation. Last but not least, remember to check the consistency of the filter to make sure the filter is doing its job.
+State parametrization is also very important. See the summary table below. I highly recommend reading [2] and [3] to understand representations of rotations. The KF implementations here uses so3 parameters to represent rotation. I also recommend reading [4], which formulates the problem using dual-quaternions. Last but not least, remember to check the consistency of the filter to make sure the filter is doing its job.
 
 ![Representations of Rotation](./Figures/Rotation_representations.png)
 
@@ -47,5 +47,6 @@ _[1]_  Havlík, Jindřich, and Ondřej Straka. "Performance evaluation of iterat
 _[2]_ Blanco, Jose-Luis. "A tutorial on se (3) transformation parameterizations and on-manifold optimization." University of Malaga, Tech. Rep 3 (2010).
 
 _[3]_ Grassia, F. Sebastian. "Practical parameterization of rotations using the exponential map." Journal of graphics tools 3.3 (1998): 29-48.
+_[4]_ Srivatsan, Rangaprasad Arun, et al. "Estimating SE (3) elements using a dual quaternion based linear Kalman filter." Robotics: Science and Systems. 2016.
 
 
