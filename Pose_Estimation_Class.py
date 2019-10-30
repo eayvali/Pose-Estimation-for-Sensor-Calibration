@@ -135,7 +135,7 @@ class EKF(object):
         self.z=np.zeros(6,dtype=np.float64) #pseudo measurements
         self.consistency=[] #should decrease over time for the LSE problem
         
-    def Update(self,AA,BA):
+    def Update(self,AA,BB):
         #process model is constant so no prediction step
         h=self.__CalculateMeasurementFunction(self.x, AA, BB)
         H=self.__CalculateJacobian(self.x,AA,BB)  
@@ -187,7 +187,7 @@ class IEKF(object):
         self.z=np.zeros(6,dtype=np.float64) #pseudo measurements
         self.consistency=[] #should decrease over time for the LSE problem
         
-    def Update(self,AA,BA):
+    def Update(self,AA,BB):
         #process model is constant so no prediction step
         numIterations=0
         maxIterations=5
